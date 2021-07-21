@@ -1,0 +1,2 @@
+query_1.jpg db_1.jpg
+query_1.jpg db_2.jpg

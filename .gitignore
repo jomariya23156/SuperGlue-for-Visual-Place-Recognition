@@ -1,0 +1,15 @@
+*.pyc
+*.DS_Store
+*.swp
+*.ipynb_checkpoints
+*.MOV
+real_video_1.MOV
+real_video_2.MOV
+__pycache__
+.idea
+api_output
+rank_output
+test_indoor
+test_indoor_output
+test_realdata_2
+test
