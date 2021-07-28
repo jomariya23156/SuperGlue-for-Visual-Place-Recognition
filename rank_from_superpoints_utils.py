@@ -185,7 +185,7 @@ def rank_superpoints(query: np.ndarray, images_db: pd.DataFrame, output: str,
     df.rename(columns = {'index':'image'},inplace=True)
     df.to_csv(str(output_dir/'ranking_score.csv'), index=True)
     
-    print('[DEBUGGING] Rank result:',ranked_images_percentage)
-    print('[DEBUGGING] Final result value:', final_result)
+    # print('[DEBUGGING] Rank result:',ranked_images_percentage)
+    # print('[DEBUGGING] Final result value:', final_result)
     
     return final_result

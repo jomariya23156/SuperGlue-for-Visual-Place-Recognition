@@ -13,15 +13,23 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument(
     '-q', '--query', type=str, required=True,
-    help='query image name')
+    help='Name of query image')
 
 parser.add_argument(
-    '-i', '--input', type=str, required=True,
+    '-i', '--input_csv', type=str, required=True,
     help='Path to ranking result (.csv file) from matching result directory')
 
 parser.add_argument(
     '-id', '--input_dir', type=str, required=True,
     help='Path to original image directory')
+
+parser.add_argument(
+    '--input_extension', type=str, default='png', choices={'jpg', 'png'},
+    help='Extension of image in input_dir')
+
+parser.add_argument(
+    '--output_extension', type=str, default='png', choices={'jpg', 'png'},
+    help='Extension of output visualization image')
 
 parser.add_argument(
     '-r', '--rank', type=int, default=5,
@@ -30,18 +38,16 @@ parser.add_argument(
 args = parser.parse_args()
 
 rank = args.rank
-input = Path(args.input)
+input_csv = Path(args.input_csv)
 
 in_path = Path(args.input_dir)
 query = Path(args.query)
-print('Looking for data in directory \"{}\"'.format(input))
-
-
+print('Looking for data in directory \"{}\"'.format(input_csv))
 
 ####start ranking viz process####
 
 #get
-df = pd.read_csv(input)
+df = pd.read_csv(input_csv)
 df = df.iloc[:rank+1,1:]
 
 # delete the 100% score (same with query)
@@ -56,8 +62,8 @@ size = df.shape[0]
 #get queried image
 imq = mp.imread(os.path.join(in_path, query))
 
-#add .png extension
-df['image'] = df['image'].apply(lambda x: f"{x}.png")
+#add extension
+df['image'] = df['image'].apply(lambda x: f"{x}.{args.input_extension}")
 
 #create list of matching image
 impath = df['image'].apply(lambda x: os.path.join(in_path, str(x)))
@@ -91,5 +97,5 @@ plt.tight_layout(pad = 2)
 plt.show()
 
 #save viz
-fig.savefig(f'realdata2_match_ranking_of_{query}_rank_{rank}_from_superpoints.png',facecolor = 'w')
+fig.savefig(f'match_ranking_of_{query}_showing_{rank}_rank.{args.output_extension}',facecolor = 'w')
 
