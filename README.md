@@ -1,7 +1,7 @@
 # SuperGlue for Visual Place Recognition
 
 ## Introduction
-We use SuperGlue and SuperPoint for VPR (Visual Place Recognition) task answering the question "Given a query image, where is this place in the map?".
+&nbsp;&nbsp;&nbsp;&nbsp;We use SuperGlue and SuperPoint for VPR (Visual Place Recognition) task answering the question "Given a query image, where is this place in the map?".
 
 Original SuperGlue works by Magic Leap Team, please see:
 
@@ -28,7 +28,7 @@ Original SuperGlue works by Magic Leap Team, please see:
 Simply run the following command: `pip3 install numpy pandas opencv-python torch matplotlib fastapi uvicorn`
 
 ## Contents
-We have contributed these 9 files for VPR task and utilities in addition to original files from original Github repo (examples of usage will be described and provided below sections):
+&nbsp;&nbsp;&nbsp;&nbsp;We have contributed these 9 files for VPR task and utilities in addition to original files from original Github repo (examples of usage will be described and provided below sections):
 
 1. `image_from_video.py`: extract frame from videos and save out as image files
 2. `superpoints_from_images.py`: extract SuperPoint keypoints from images and save as pickle files
@@ -41,6 +41,7 @@ We have contributed these 9 files for VPR task and utilities in addition to orig
 9. `build_database_from_pickle_dir.ipynb`: example of code for building easy database .csv file for testing SuperGlue for VPR tasks
 
 ## Usage
+&nbsp;&nbsp;&nbsp;&nbsp;In this section, we will explain how to execute each file. For full workflow of every file, please go to the next section.
 **Note:** you can always run `python (file_name).py -h` or `python (file_name).py --help` for every file receiving arguments to see what arguments you need to pass in (or open the file on our preferred editor and read from the source code)  
 **Note 2:** Feel free to edit anything to achieve your desired results!  
   
@@ -106,15 +107,33 @@ We have contributed these 9 files for VPR task and utilities in addition to orig
 * `--output_extension` Extension of output visualization image. There are 2 options which are 'jpg' and 'png'. (default: png)
 * `--rank (or -r)`Number of rank to show (default: 5)
 
-&nbsp;&nbsp;&nbsp;&nbsp;**Example usage:** `python ranking_viz.py -q 60.png -i test_realdata/ranking_score.csv -id test_realdata --input_extension png --output_extension png -r 10` by running this, the code will visualize the result following the number of rank specify in -r. For example: **(ranking image here)**
+&nbsp;&nbsp;&nbsp;&nbsp;**Example usage:** `python ranking_viz.py -q 60.png -i test_realdata/ranking_score.csv -id test_realdata --input_extension png --output_extension png -r 10` by running this, the code will visualize the result following the number of rank specify in -r. For example:  
+<img src="./assets/github/ranking_viz_example.png">
 
 6. **`rank_from_superpoints_utils.py`** This code is the refactored code version of `superglue_rank_superpoints_file.py` in order to use for building an API. So, you don't need to do anything with this file
 
-7. **`place_recognition_api.py`** Run `uvicorn place_recognition_api:app` and go to the port showing in the command line. *Note: You will see a lot of online resources adding --reload at the end after :app, but we don't do this here because at the runtime there will be 1 file created named `rank_pairs.txt` for matching to work properly. If you specify --reload, the app api will be reload every time the new file created. This can lead to error and infinite loop* 
+7. **`place_recognition_api.py`** Run `uvicorn place_recognition_api:app` and go to the port showing in the command line. With the fact that we built this API with FastAPI, you can type `/docs` after the port number to go to the doc and test all route. *Note: You will see a lot of online resources adding --reload at the end after :app, but we don't do this here because at the runtime there will be 1 file created named `rank_pairs.txt` for matching to work properly. If you specify --reload, the app api will be reload every time the new file created. This can lead to error and infinite loop* 
 
-8. **`client_test_api.py`** Basically run `python client_test_api.py` to test whether the API works properly. You can change the file name and rank parameter in the source code file to test with other images and sets of parameters.
+8. **`client_test_api.py`** Basically run `python client_test_api.py` to test whether the API works properly. You can change the file name and rank parameter in the source code file to test with other images and sets of parameters. If you want to POST from other files, don't forget to POST to `/do_ranking/` route. The main `/` and `/items/` are there just for testing purpose.
 
 9. **`build_database_from_pickle_dir.ipynb`** This is the minimum example of .csv database file. You can take a look into the source code and run all cells or you can build it on your own.
+
+## Full workflow (main workflow)
+1. Run `images_from_video.py` by passing your input video of your map/place, then you will get the output as a bunch of images in the specified output folder.
+2. Run `superpoints_from_images.py` by inputting the folder of images you got from step 1. You will get the output as a bunch of .pickle files storing SuperPoints from those input images.
+3. (This step is not in the image below) Use `build_database_from_pickle_dir.ipynb` as you baseline to build your database and save as .csv with the name `superpoints_database.csv` (if you want to use other names, please go to the source code and change **line 14**)
+4. Run `place_recognition_api.py` with the command from previous section.
+5. Go to `port/docs` to test your API or use `client_test_api.py` to test. The API get request as 1 image file and 1 parameter named `rank` which indicates how many rank you want to get in the result.
+6. After you test ranking on API and it works fine, you should see a new folder in your current working directory named `api_output` which contains the matching results and `ranking_score.csv` which can be used for visualization with `ranking_viz.py`. If you see this new folder, congratulations! everything works properly.
+7. That's it! The full image of the workflow is provided below and also the expected response body.   
+<img src="./assets/github/main_workflow.png">
+
+## Alternative workflows
+* **Alternative #1** -> After step 1 in the main flow, you can run `superglue_rank_images.py` by inputting the folder of images you got from step 1. You'll get the ranking result printed in command line, matching output files, and `ranking_score.csv`. But if you use this flow, the execution time will be 2x slower since your code has to run both SuperPoint and SuperGlue.
+* **Alternative #2** -> After step 2 in the main flow, you can run `superglue_rank_superpoints`by inputting the folder of SuperPoints you got from step 2. Again, you'll get the ranking result printed in command line, matching output files, and `ranking_score.csv`. Using this flow, the time execution will be the same as the main flow, but there is no support for end-to-end API.
+* **From both Alternative #1 and #3 or the main flow**, after you get `ranking_score.csv` from running code, you can run `ranking_viz.py` to see the visualization result.  
+**Note:** The extra file `build_database_from_pickle_dir.ipynb` is just for demonstrating how database should look like. But feel free to desgin database as you wish, and if you do so, you must adjust the source code in `place_recognition_api.py` unless it will cause errors.  
+<img src="./assets/github/alternatives_workflow.png">
 
 ## BibTeX Citation
 If you use any ideas from the paper or code from this repo, please consider citing:
