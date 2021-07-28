@@ -1,17 +1,11 @@
-<img src="assets/magicleap.png" width="240">
-
-### Research @ Magic Leap (CVPR 2020, Oral)
-
-# SuperGlue Inference and Evaluation Demo Script
+# SuperGlue for Visual Place Recognition
 
 ## Introduction
-SuperGlue is a CVPR 2020 research project done at Magic Leap. The SuperGlue network is a Graph Neural Network combined with an Optimal Matching layer that is trained to perform matching on two sets of sparse image features. This repo includes PyTorch code and pretrained weights for running the SuperGlue matching network on top of [SuperPoint](https://arxiv.org/abs/1712.07629) keypoints and descriptors. Given a pair of images, you can use this repo to extract matching features across the image pair.
+We use SuperGlue and SuperPoint for VPR (Visual Place Recognition) task answering the question "Given a query image, where is this place in the map?".
 
-<p align="center">
-  <img src="assets/teaser.png" width="500">
-</p>
+Original SuperGlue works by Magic Leap Team, please see:
 
-SuperGlue operates as a "middle-end," performing context aggregation, matching, and filtering in a single end-to-end architecture. For more details, please see:
+* Github repo: [SuperGluePretrainedNetwork](https://github.com/magicleap/SuperGluePretrainedNetwork)
 
 * Full paper PDF: [SuperGlue: Learning Feature Matching with Graph Neural Networks](https://arxiv.org/abs/1911.11763).
 
@@ -21,344 +15,106 @@ SuperGlue operates as a "middle-end," performing context aggregation, matching, 
 
 * `hloc`: a new toolbox for visual localization and SfM with SuperGlue, available at [cvg/Hierarchical-Localization](https://github.com/cvg/Hierarchical-Localization/). Winner of 3 CVPR 2020 competitions on localization and image matching!
 
-We provide two pre-trained weights files: an indoor model trained on ScanNet data, and an outdoor model trained on MegaDepth data. Both models are inside the [weights directory](./models/weights). By default, the demo will run the **indoor** model.
-
 ## Dependencies
-* Python 3 >= 3.5
-* PyTorch >= 1.1
-* OpenCV >= 3.4 (4.1.2.30 recommended for best GUI keyboard interaction, see this [note](#additional-notes))
-* Matplotlib >= 3.1
-* NumPy >= 1.18
+* Python 3
+* PyTorch 
+* OpenCV (4.1.2.30 recommended for best GUI keyboard interaction, see this [note](#additional-notes))
+* Matplotlib
+* NumPy 
+* Pandas
+* FastAPI
+* uvicorn
 
-Simply run the following command: `pip3 install numpy opencv-python torch matplotlib`
+Simply run the following command: `pip3 install numpy pandas opencv-python torch matplotlib fastapi uvicorn`
 
 ## Contents
-There are two main top-level scripts in this repo:
-
-1. `demo_superglue.py` : runs a live demo on a webcam, IP camera, image directory or movie file
-2. `match_pairs.py`: reads image pairs from files and dumps matches to disk (also runs evaluation if ground truth relative poses are provided)
-
-## Live Matching Demo Script (`demo_superglue.py`)
-This demo runs SuperPoint + SuperGlue feature matching on an anchor image and live image. You can update the anchor image by pressing the `n` key. The demo can read image streams from a USB or IP camera, a directory containing images, or a video file. You can pass all of these inputs using the `--input` flag.
-
-### Run the demo on a live webcam
-
-Run the demo on the default USB webcam (ID #0), running on a CUDA GPU if one is found:
-
-```sh
-./demo_superglue.py
-```
-
-Keyboard control:
-
-* `n`: select the current frame as the anchor
-* `e`/`r`: increase/decrease the keypoint confidence threshold
-* `d`/`f`: increase/decrease the match filtering threshold
-* `k`: toggle the visualization of keypoints
-* `q`: quit
-
-Run the demo on 320x240 images running on the CPU:
-
-```sh
-./demo_superglue.py --resize 320 240 --force_cpu
-```
-
-The `--resize` flag can be used to resize the input image in three ways:
-
-1. `--resize` `width` `height` : will resize to exact `width` x `height` dimensions
-2. `--resize` `max_dimension` : will resize largest input image dimension to `max_dimension`
-3. `--resize` `-1` : will not resize (i.e. use original image dimensions)
-
-The default will resize images to `640x480`.
-
-### Run the demo on a directory of images
-
-The `--input` flag also accepts a path to a directory. We provide a directory of sample images from a sequence. To run the demo on the directory of images in `freiburg_sequence/` on a headless server (will not display to the screen) and write the output visualization images to `dump_demo_sequence/`:
-
-```sh
-./demo_superglue.py --input assets/freiburg_sequence/ --output_dir dump_demo_sequence --resize 320 240 --no_display
-```
-
-You should see this output on the sample Freiburg-TUM RGBD sequence:
-
-<img src="assets/freiburg_matches.gif" width="560">
-
-The matches are colored by their predicted confidence in a jet colormap (Red: more confident, Blue: less confident).
-
-### Additional useful command line parameters
-* Use `--image_glob` to change the image file extension (default: `*.png`, `*.jpg`, `*.jpeg`).
-* Use `--skip` to skip intermediate frames (default: `1`).
-* Use `--max_length` to cap the total number of frames processed (default: `1000000`).
-* Use `--show_keypoints` to visualize the detected keypoints (default: `False`).
-
-## Run Matching+Evaluation (`match_pairs.py`)
-
-This repo also contains a script `match_pairs.py` that runs the matching from a list of image pairs. With this script, you can:
-
-* Run the matcher on a set of image pairs (no ground truth needed)
-* Visualize the keypoints and matches, based on their confidence
-* Evaluate and visualize the match correctness, if the ground truth relative poses and intrinsics are provided
-* Save the keypoints, matches, and evaluation results for further processing
-* Collate evaluation results over many pairs and generate result tables
-
-### Matches only mode
-
-The simplest usage of this script will process the image pairs listed in a given text file and dump the keypoints and matches to compressed numpy `npz` files. We provide the challenging ScanNet pairs from the main paper in `assets/example_indoor_pairs/`. Running the following will run SuperPoint + SuperGlue on each image pair, and dump the results to `dump_match_pairs/`:
-
-```sh
-./match_pairs.py
-```
-
-The resulting `.npz` files can be read from Python as follows:
-
-```python
->>> import numpy as np
->>> path = 'dump_match_pairs/scene0711_00_frame-001680_scene0711_00_frame-001995_matches.npz'
->>> npz = np.load(path)
->>> npz.files
-['keypoints0', 'keypoints1', 'matches', 'match_confidence']
->>> npz['keypoints0'].shape
-(382, 2)
->>> npz['keypoints1'].shape
-(391, 2)
->>> npz['matches'].shape
-(382,)
->>> np.sum(npz['matches']>-1)
-115
->>> npz['match_confidence'].shape
-(382,)
-```
-
-For each keypoint in `keypoints0`, the `matches` array indicates the index of the matching keypoint in `keypoints1`, or `-1` if the keypoint is unmatched.
-
-### Visualization mode
-
-You can add the flag `--viz` to dump image outputs which visualize the matches:
-
-```sh
-./match_pairs.py --viz
-```
-
-You should see images like this inside of `dump_match_pairs/` (or something very close to it, see this [note](#a-note-on-reproducibility)):
-
-<img src="assets/indoor_matches.png" width="560">
-
-The matches are colored by their predicted confidence in a jet colormap (Red: more confident, Blue: less confident).
-
-### Evaluation mode
-
-You can also estimate the pose using RANSAC + Essential Matrix decomposition and evaluate it if the ground truth relative poses and intrinsics are provided in the input `.txt` files. Each `.txt` file contains three key ground truth matrices: a 3x3 intrinsics matrix of image0: `K0`, a 3x3 intrinsics matrix of image1: `K1` , and a 4x4 matrix of the relative pose extrinsics `T_0to1`.
-
-To run the evaluation on the sample set of images (by default reading `assets/scannet_sample_pairs_with_gt.txt`), you can run:
-
-```sh
-./match_pairs.py --eval
-```
-
-
-Since you enabled `--eval`, you should see collated results printed to the terminal. For the example images provided, you should get the following numbers (or something very close to it, see this [note](#a-note-on-reproducibility)):
-
-```txt
-Evaluation Results (mean over 15 pairs):
-AUC@5    AUC@10  AUC@20  Prec    MScore
-26.99    48.40   64.47   73.52   19.60
-```
-
-The resulting `.npz` files in `dump_match_pairs/` will now contain scalar values related to the evaluation, computed on the sample images provided. Here is what you should find in one of the generated evaluation files:
-
-```python
->>> import numpy as np
->>> path = 'dump_match_pairs/scene0711_00_frame-001680_scene0711_00_frame-001995_evaluation.npz'
->>> npz = np.load(path)
->>> print(npz.files)
-['error_t', 'error_R', 'precision', 'matching_score', 'num_correct', 'epipolar_errors']
-```
-
-You can also visualize the evaluation metrics by running the following command:
-
-```sh
-./match_pairs.py --eval --viz
-```
-
-You should also now see additional images in `dump_match_pairs/` which visualize the evaluation numbers (or something very close to it, see this [note](#a-note-on-reproducibility)):
-
-<img src="assets/indoor_evaluation.png" width="560">
-
-The top left corner of the image shows the pose error and number of inliers, while the lines are colored by their epipolar error computed with the ground truth relative pose (red: higher error, green: lower error).
-
-### Running on sample outdoor pairs
-
-<details>
-  <summary>[Click to expand]</summary>
-
-In this repo, we also provide a few challenging Phototourism pairs, so that you can re-create some of the figures from the paper. Run this script to run matching and visualization (no ground truth is provided, see this [note](#reproducing-outdoor-evaluation-final-table)) on the provided pairs:
-
-```sh
-./match_pairs.py --resize 1600 --superglue outdoor --max_keypoints 2048 --nms_radius 3  --resize_float --input_dir assets/phototourism_sample_images/ --input_pairs assets/phototourism_sample_pairs.txt --output_dir dump_match_pairs_outdoor --viz
-```
-
-You should now image pairs such as these in `dump_match_pairs_outdoor/` (or something very close to it, see this [note](#a-note-on-reproducibility)):
-
-<img src="assets/outdoor_matches.png" width="560">
-
-</details>
-
-### Recommended settings for indoor / outdoor
-
-<details>
-  <summary>[Click to expand]</summary>
-
-For **indoor** images, we recommend the following settings (these are the defaults):
-
-```sh
-./match_pairs.py --resize 640 --superglue indoor --max_keypoints 1024 --nms_radius 4
-```
-
-For **outdoor** images, we recommend the following settings:
-
-```sh
-./match_pairs.py --resize 1600 --superglue outdoor --max_keypoints 2048 --nms_radius 3 --resize_float
-```
-
-You can provide your own list of pairs `--input_pairs` for images contained in `--input_dir`. Images can be resized before network inference with `--resize`. If you are re-running the same evaluation many times, you can use the `--cache` flag to reuse old computation.
-</details>
-
-### Test set pair file format explained
-
-<details>
-  <summary>[Click to expand]</summary>
-
-We provide the list of ScanNet test pairs in `assets/scannet_test_pairs_with_gt.txt` (with ground truth) and Phototourism test pairs `assets/phototourism_test_pairs.txt` (without ground truth) used to evaluate the matching from the paper. Each line corresponds to one pair and is structured as follows:
-
-```
-path_image_A path_image_B exif_rotationA exif_rotationB [KA_0 ... KA_8] [KB_0 ... KB_8] [T_AB_0 ... T_AB_15]
-```
-
-The `path_image_A` and `path_image_B` entries are paths to image A and B, respectively. The `exif_rotation` is an integer in the range [0, 3] that comes from the original EXIF metadata associated with the image, where, 0: no rotation, 1: 90 degree clockwise, 2: 180 degree clockwise, 3: 270 degree clockwise. If the EXIF data is not known, you can just provide a zero here and no rotation will be performed. `KA` and `KB` are the flattened `3x3` matrices of image A and image B intrinsics. `T_AB` is a flattened `4x4` matrix of the extrinsics between the pair.
-</details>
-
-### Reproducing the indoor evaluation on ScanNet
-
-<details>
-  <summary>[Click to expand]</summary>
-
-We provide the groundtruth for ScanNet in our format in the file `assets/scannet_test_pairs_with_gt.txt` for convenience. In order to reproduce similar tables to what was in the paper, you will need to download the dataset (we do not provide the raw test images). To download the ScanNet dataset, do the following:
-
-1. Head to the [ScanNet](https://github.com/ScanNet/ScanNet) github repo to download the ScanNet test set (100 scenes).
-2. You will need to extract the raw sensor data from the 100 `.sens` files in each scene in the test set using the [SensReader](https://github.com/ScanNet/ScanNet/tree/master/SensReader) tool.
-
-Once the ScanNet dataset is downloaded in `~/data/scannet`, you can run the following:
-
-```sh
-./match_pairs.py --input_dir ~/data/scannet --input_pairs assets/scannet_test_pairs_with_gt.txt --output_dir dump_scannet_test_results --eval
-```
-
-You should get the following table for ScanNet (or something very close to it, see this [note](#a-note-on-reproducibility)):
-
-```txt
-Evaluation Results (mean over 1500 pairs):
-AUC@5    AUC@10  AUC@20  Prec    MScore
-16.12    33.76   51.79   84.37   31.14
-```
-
-</details>
-
-### Reproducing the outdoor evaluation on YFCC
-
-<details>
-  <summary>[Click to expand]</summary>
-
-We provide the groundtruth for YFCC in our format in the file `assets/yfcc_test_pairs_with_gt.txt` for convenience. In order to reproduce similar tables to what was in the paper, you will need to download the dataset (we do not provide the raw test images). To download the YFCC dataset, you can use the [OANet](https://github.com/zjhthu/OANet) repo:
-
-```sh
-git clone https://github.com/zjhthu/OANet
-cd OANet
-bash download_data.sh raw_data raw_data_yfcc.tar.gz 0 8
-tar -xvf raw_data_yfcc.tar.gz
-mv raw_data/yfcc100m ~/data
-```
-
-Once the YFCC dataset is downloaded in `~/data/yfcc100m`, you can run the following:
-
-```sh
-./match_pairs.py --input_dir ~/data/yfcc100m --input_pairs assets/yfcc_test_pairs_with_gt.txt --output_dir dump_yfcc_test_results --eval --resize 1600 --superglue outdoor --max_keypoints 2048 --nms_radius 3 --resize_float
-```
-
-You should get the following table for YFCC (or something very close to it, see this [note](#a-note-on-reproducibility)):
-
-```txt
-Evaluation Results (mean over 4000 pairs):
-AUC@5    AUC@10  AUC@20  Prec    MScore
-39.02    59.51   75.72   98.72   23.61  
-```
-
-</details>
-
-### Reproducing outdoor evaluation on Phototourism
-
-<details>
-  <summary>[Click to expand]</summary>
-
-The Phototourism results shown in the paper were produced using similar data as the test set from the [Image Matching Challenge 2020](https://vision.uvic.ca/image-matching-challenge/), which holds the ground truth data private for the test set. We list the pairs we used in `assets/phototourism_test_pairs.txt`. To reproduce similar numbers on this test set, please submit to the challenge benchmark. While the challenge is still live, we cannot share the test set publically since we want to help maintain the integrity of the challenge. 
-
-</details>
-
-### Correcting EXIF rotation data in YFCC and Phototourism
-
-<details>
-  <summary>[Click to expand]</summary>
-
-In this repo, we provide manually corrected the EXIF rotation data for the outdoor evaluations on YFCC and Phototourism. For the YFCC dataset we found 7 images with incorrect EXIF rotation flags, resulting in 148 pairs out of 4000 being corrected. For Phototourism, we found 36 images with incorrect EXIF rotation flags, resulting in 212 out of 2200 pairs being corrected.
-
-The SuperGlue paper reports the results of SuperGlue **without** the corrected rotations, while the numbers in this README are reported **with** the corrected rotations. We found that our final conclusions from the evaluation still hold with or without the corrected rotations. For backwards compatability, we included the original, uncorrected EXIF rotation data in `assets/phototourism_test_pairs_original.txt` and `assets/yfcc_test_pairs_with_gt_original.txt` respectively.
-
-</details>
-
-### Outdoor training / validation scene splits of MegaDepth
-
-<details>
-  <summary>[Click to expand]</summary>
-
-For training and validation of the outdoor model, we used scenes from the [MegaDepth dataset](http://www.cs.cornell.edu/projects/megadepth/). We provide the list of scenes used to train the outdoor model in the `assets/` directory:
-
-* Training set: `assets/megadepth_train_scenes.txt`
-* Validation set: `assets/megadepth_validation_scenes.txt`
-
-</details>
-
-### A note on reproducibility
-
-<details>
-  <summary>[Click to expand]</summary>
-
-After simplifying the model code and evaluation code and preparing it for release, we made some improvements and tweaks that result in slightly different numbers than what was reported in the paper. The numbers and figures reported in the README were done using Ubuntu 16.04, OpenCV 3.4.5, and PyTorch 1.1.0. Even with matching the library versions, we observed some slight differences across Mac and Ubuntu, which we believe are due to differences in OpenCV's image resize function implementation and randomization of RANSAC.
-</details>
-
-### Creating high-quality PDF visualizations and faster visualization with --fast_viz
-
-<details>
-  <summary>[Click to expand]</summary>
-
-When generating output images with `match_pairs.py`, the default `--viz` flag uses a Matplotlib renderer which allows for the generation of camera-ready PDF visualizations if you additionally use `--viz_extension pdf` instead of the default png extension.
-
-```
-./match_pairs.py --viz --viz_extension pdf
-```
-
-Alternatively, you might want to save visualization images but have the generation be much faster.  You can use the `--fast_viz` flag to use an OpenCV-based image renderer as follows:
-
-```
-./match_pairs.py --viz --fast_viz
-```
-
-If you would also like an OpenCV display window to preview the results (you must use non-pdf output and use fast_fiz), simply run:
-
-```
-./match_pairs.py --viz --fast_viz --opencv_display
-```
-
-</details>
-
+We have contributed these 9 files for VPR task and utilities in addition to original files from original Github repo (examples of usage will be described and provided below sections):
+
+1. `image_from_video.py`: extract frame from videos and save out as image files
+2. `superpoints_from_images.py`: extract SuperPoint keypoints from images and save as pickle files
+3. `superglue_rank_superpoints_file.py`: do image matching and ranking from SuperPoint keypoints .pickle files using SuperGlue 
+4. `superglue_rank_images.py`: do image matching and ranking from images files using SuperGlue 
+5. `ranking_viz.py`: visualize the ranking results and save output as a image
+6. `rank_from_superpoints_utils.py`: refactored code version of `superglue_rank_superpoints_file.py` in order to use for building an API
+7. `place_recognition_api.py`: server side of API built with FastAPI
+8. `client_test_api.py`: client side API request example
+9. `build_database_from_pickle_dir.ipynb`: example of code for building easy database .csv file for testing SuperGlue for VPR tasks
+
+## Usage
+**Note:** you can always run `python (file_name).py -h` or `python (file_name).py --help` for every file receiving arguments to see what arguments you need to pass in (or open the file on our preferred editor and read from the source code)  
+**Note 2:** Feel free to edit anything to achieve your desired results!  
+  
+1. **`image_from_video.py`** Command line arguements:  
+* `--input (or -i)` Path to input video
+* `--output (or -o)` Path to directory to save images
+* `--skip (or -s)` Number of frame to skip, in the other words, save every n frame (default: 60)
+* `--format (or -f)` Image file format for saving (only 2 options available 'jpg' or 'png')  
+
+&nbsp;&nbsp;&nbsp;&nbsp;**Example usage:** `python image_from_video.py -i video/country_road.MOV -o saved_frame -s 60 -f png` by running this, the code will save every 60 frames from country_road.MOV in video folder into saved_frame folder in the current working directory as .png files
+
+2. **`superpoints_from_images.py`** Command line arguements:  
+* `--input_dir` Input directory of images to be processed
+* `--output_dir` Output directory to save SuperPoints data
+* `--max_keypoints` Maximum number of keypoints detected by Superpoint ('-1' keeps all keypoints) (default: 1024)
+* `--keypoint_threshold` SuperPoint keypoint detector confidence threshold (default: 0.005)
+* `--nms_radius` SuperPoint Non Maximum Suppression (NMS) radius (Must be positive) (default: 4)
+* `--resize` Resize the input image before running inference. Two numbers required. (default: 640x480)
+* `--cuda` Use cuda GPU to speed up network processing speed (default: False)
+
+&nbsp;&nbsp;&nbsp;&nbsp;**Example usage:** `python superpoints_from_images.py --input_dir test_realdata --output_dir saved_superpoints/pickle/test_realdata --resize 320 240 --cuda` by running this, the code will resize images to 320x240 and extract SuperPoints from images in `test_realdata` folder using CUDA. Then, save to `saved_superpoints/pickle/test_realdata` folder.
+
+3. **`superglue_rank_superpoints_file.py`** Command line arguements:  
+* `--query (or -q)` Name of query pickle inside input_dir folder (it must be one of pickle in the input_dir folder) This file does not support inputting image from outside directory. If you wish to do so, use API which we will explain later here.
+* `--input_dir (or -i)` Path to database pickle directory
+* `--output_dir (or -o)` Path to store .npz files (resuls from matching)
+* `--image_size` Image size used to resize image with SuperPoints. If you didn\'t specify resize when running superpoints_from_images.py file. Please enter 640 480. (format: width x height)
+* `--max_length` Maximum number of pairs to evaluate. -1 is no maximum. (default: -1)
+* `--superglue` SuperGlue weights. There are 2 options available which are `indoor` or `outdoor`. (default: `indoor`)
+* `--sinkhorn_iterations` Number of Sinkhorn iterations performed by SuperGlue (default: 20)
+* `--match_threshold` SuperGlue match threshold (default: 0.2)
+* `--cuda` Use cuda GPU to speed up network processing speed (default: False)
+
+&nbsp;&nbsp;&nbsp;&nbsp;**Example usage:** `python superglue_rank_superpoints_file.py -q 60.pickle -i saved_superpoints/pickle/test_realdata -o rank_output/rank_output_test_realdata --image_size 320 240 --cuda` by running this, the code will rank the SuperPoints file according to the query file and output the ranking result in the command line, save the match output to the output directory, and output `ranking_score.csv` (the result of ranking in csv format) using CUDA.
+
+4. **`superglue_rank_images.py`** Command line arguements:  
+* `--query (or -q)` Name of query image inside input_dir folder (it must be one of image in the input_dir folder) This file does not support inputting image from outside directory. If you wish to do so, use API which we will explain later here.
+* `--input_dir (or -i)` Path to database image directory
+* `--output_dir (or -o)` Path to store .npz files and ranking_score.csv (resuls from matching)
+* `--max_length` Maximum number of pairs to evaluate. -1 is no maximum. (default: -1)
+* `--resize` Resize the input image before running inference. Two numbers required. (default: 640x480) 
+* `--resize_float` Resize the image after casting uint8 to float (default: Fakse)
+* `--superglue` SuperGlue weights. There are 2 options available which are `indoor` or `outdoor`. (default: `indoor`)
+* `--max_keypoints` Maximum number of keypoints detected by Superpoint ('-1' keeps all keypoints) (default: 1024)
+* `--keypoint_threshold` SuperPoint keypoint detector confidence threshold (default: 0.005)
+* `--viz` Visualize the matches and dump the plots (default: False)
+* `--nms_radius` SuperPoint Non Maximum Suppression (NMS) radius (Must be positive) (default: 4)
+* `--sinkhorn_iterations` Number of Sinkhorn iterations performed by SuperGlue (default: 20)
+* `--match_threshold` SuperGlue match threshold (default: 0.2)
+* `--force_cpu` Force pytorch to run in CPU mode (default: False)
+* `--viz_extension` Visualization file extension. Use pdf for highest-quality. There are 2 options which are 'png' and 'pdf'. (default: png)
+* `--fast_viz` Use faster image visualization with OpenCV instead of Matplotlib (default: False)
+* `--show_keypoints` Plot the keypoints in addition to the matches (default: False)
+* `--opencv_display` Visualize via OpenCV before saving output images (default: False)
+
+&nbsp;&nbsp;&nbsp;&nbsp;**Example usage:** `python superglue_rank_images.py -q 60.png -i test_realdata -o rank_output/rank_output_test_realdata_images --resize 320 240 --resize_float --viz --viz_extension png --fast_viz --show_keypoints` by running this, the code will rank the images according to the image query, do the visualization, show the keypoints, and output the ranking result in the command line, save the match output to the output directory, and output `ranking_score.csv` (the result of ranking in csv format) using CUDA.
+
+5. **`ranking_viz.py`** Command line arguements:  
+* `--query (or -q)` Name of query image (in the ranking_result that you did ranking from other files)
+* `--input_csv (or -i)` Path to ranking result (.csv file) from matching result directory
+* `--input_dir (or -id)` Path to original image directory
+* `--input_extension` Extension of image in input_dir. There are 2 options which are 'jpg' and 'png'. (default: png)
+* `--output_extension` Extension of output visualization image. There are 2 options which are 'jpg' and 'png'. (default: png)
+* `--rank (or -r)`Number of rank to show (default: 5)
+
+&nbsp;&nbsp;&nbsp;&nbsp;**Example usage:** `python ranking_viz.py -q 60.png -i test_realdata/ranking_score.csv -id test_realdata --input_extension png --output_extension png -r 10` by running this, the code will visualize the result following the number of rank specify in -r. For example: **(ranking image here)**
+
+6. **`rank_from_superpoints_utils.py`** This code is the refactored code version of `superglue_rank_superpoints_file.py` in order to use for building an API. So, you don't need to do anything with this file
+
+7. **`place_recognition_api.py`** Run `uvicorn place_recognition_api:app` and go to the port showing in the command line. *Note: You will see a lot of online resources adding --reload at the end after :app, but we don't do this here because at the runtime there will be 1 file created named `rank_pairs.txt` for matching to work properly. If you specify --reload, the app api will be reload every time the new file created. This can lead to error and infinite loop* 
+
+8. **`client_test_api.py`** Basically run `python client_test_api.py` to test whether the API works properly. You can change the file name and rank parameter in the source code file to test with other images and sets of parameters.
+
+9. **`build_database_from_pickle_dir.ipynb`** This is the minimum example of .csv database file. You can take a look into the source code and run all cells or you can build it on your own.
 
 ## BibTeX Citation
 If you use any ideas from the paper or code from this repo, please consider citing:
@@ -375,12 +131,6 @@ If you use any ideas from the paper or code from this repo, please consider citi
   url       = {https://arxiv.org/abs/1911.11763}
 }
 ```
-
-## Additional Notes
-* For the demo, we found that the keyboard interaction works well with OpenCV 4.1.2.30, older versions were less responsive and the newest version had a [OpenCV bug on Mac](https://stackoverflow.com/questions/60032540/opencv-cv2-imshow-is-not-working-because-of-the-qt)
-* We generally do not recommend to run SuperPoint+SuperGlue below 160x120 resolution (QQVGA) and above 2000x1500
-* We do not intend to release the SuperGlue training code.
-* We do not intend to release the SIFT-based or homography SuperGlue models.
 
 ## Legal Disclaimer
 Magic Leap is proud to provide its latest samples, toolkits, and research projects on Github to foster development and gather feedback from the spatial computing community. Use of the resources within this repo is subject to (a) the license(s) included herein, or (b) if no license is included, Magic Leap's [Developer Agreement](https://id.magicleap.com/terms/developer), which is available on our [Developer Portal](https://developer.magicleap.com/).
